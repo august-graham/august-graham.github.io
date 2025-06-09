@@ -4,9 +4,109 @@
     <!-- Required meta tags -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <!-- Required for SharedArrayBuffer -->
+    <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin">
+    <meta http-equiv="Cross-Origin-Embedder-Policy" content="require-corp">
 
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #f8f9fa;
+      }
+      #model-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: -1;
+      }
+      #loading-info {
+        position: absolute;
+        padding: 10px;
+        background: rgba(255,255,255,0.8);
+        border-radius: 4px;
+        z-index: 1000;
+      }
+      .content-wrapper {
+        position: relative;
+        z-index: 1;
+        background: rgba(255,255,255,0.8);
+        padding: 20px;
+        margin: 20px;
+        border-radius: 10px;
+      }
+      .navbar {
+        background: rgba(248,249,250,0.9) !important;
+      }
+      #rotation-controls {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        background: rgba(255,255,255,0.9);
+        padding: 15px;
+        border-radius: 10px;
+        z-index: 1000;
+        display: none; /* Hidden by default */
+      }
+      .rotation-slider {
+        width: 200px;
+        margin: 10px 0;
+      }
+      .rotation-value {
+        display: inline-block;
+        margin-left: 10px;
+        font-family: monospace;
+      }
+      .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 34px;
+        margin-bottom: 15px;
+      }
+      .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 34px;
+      }
+      .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 26px;
+        width: 26px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .4s;
+        border-radius: 50%;
+      }
+      input:checked + .toggle-slider {
+        background-color: #2196F3;
+      }
+      input:checked + .toggle-slider:before {
+        transform: translateX(26px);
+      }
+      .toggle-label {
+        margin-left: 10px;
+        vertical-align: super;
+      }
+    </style>
 
     <title>Hello, world!</title>
   </head>
@@ -32,21 +132,258 @@
         </ul>
     </div>
     </nav>
-    <div class="row">
-    <div class="col-4">
-        <img src="Headshot.jpg" class="img-fluid rounded" alt="Headshot of August">
+    <div id="loading-info">Loading model...</div>
+    <div id="model-container"></div>
+    
+    <div id="rotation-controls">
+      <div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="mouseToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="toggle-label">Mouse Interaction</span>
+      </div>
+      <div>
+        <label for="rotationX">Rotation X:</label>
+        <input type="range" id="rotationX" class="rotation-slider" min="-180" max="180" value="56">
+        <span id="rotationXValue" class="rotation-value"></span>
+      </div>
+      <div>
+        <label for="rotationY">Rotation Y:</label>
+        <input type="range" id="rotationY" class="rotation-slider" min="-180" max="180" value="16">
+        <span id="rotationYValue" class="rotation-value"></span>
+      </div>
+      <div>
+        <label for="rotationZ">Rotation Z:</label>
+        <input type="range" id="rotationZ" class="rotation-slider" min="-180" max="180" value="-14">
+        <span id="rotationZValue" class="rotation-value"></span>
+      </div>
     </div>
-    <div class="col-8">
-        <h3>About Me</h3>
-        <p>I am a super cool guy you should hire....</p>
+    
+    <div class="content-wrapper">
+      <div class="row">
+        <div class="col-6">
+          <img src="static/Headshot.jpg" class="img-fluid rounded" alt="Headshot of August">
+        </div>
+        <div class="col-6">
+          <h3>About Me</h3>
+          <p>I am a super cool guy you should hire....</p>
+        </div>
+      </div>
     </div>
-    </div>
-    <h1>Hello, world!</h1>
 
     <!-- Optional JavaScript -->
     <!-- jQuery first, then Popper.js, then Bootstrap JS -->
     <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.12.9/dist/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    
+    <!-- Three.js and GaussianSplats3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mkkellogg/gaussian-splats-3d@0.4.7/build/gaussian-splats-3d.umd.min.js"></script>
+
+    <script>
+      // Configuration
+      const SHOW_DEV_CONTROLS = false; // Set to false to hide rotation controls
+      const baseUrl = '';
+      
+      // Set up the scene
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf8f9fa);
+      
+      const container = document.getElementById('model-container');
+      const loadingInfo = document.getElementById('loading-info');
+      
+      const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 100);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setClearColor(0xf8f9fa, 1);
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      container.appendChild(renderer.domElement);
+
+      // Add lights
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+      
+      const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+      directionalLight1.position.set(1, 1, 1);
+      scene.add(directionalLight1);
+      
+      const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+      directionalLight2.position.set(-1, -1, -1);
+      scene.add(directionalLight2);
+
+      // Add OrbitControls
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.05;
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 2.0;
+
+      // Initial camera position - adjusted for better perspective
+      camera.position.set(0, 0, 8);
+      camera.lookAt(0, 0, 0);
+      
+      // Set camera limits
+      controls.minDistance = 6;
+      controls.maxDistance = 10;
+
+      // Show/hide dev controls based on flag
+      const rotationControls = document.getElementById('rotation-controls');
+      if (SHOW_DEV_CONTROLS) {
+        rotationControls.style.display = 'block';
+      }
+
+      // Mouse movement tracking
+      let mouseX = 0;
+      let mouseY = 0;
+      let targetRotationX = 0;
+      let targetRotationY = 0;
+      let mouseInteractionEnabled = true; // Always enable mouse interaction by default
+      
+      // Get toggle element and set up listener only if dev controls are shown
+      if (SHOW_DEV_CONTROLS) {
+        const mouseToggle = document.getElementById('mouseToggle');
+        mouseToggle.addEventListener('change', (event) => {
+          mouseInteractionEnabled = event.target.checked;
+          if (!mouseInteractionEnabled) {
+            // Reset rotations when disabled
+            targetRotationX = 0;
+            targetRotationY = 0;
+          }
+        });
+      }
+      
+      // Add mouse move listener
+      document.addEventListener('mousemove', (event) => {
+        if (!mouseInteractionEnabled) return;
+        
+        // Convert mouse position to normalized coordinates (-1 to 1)
+        mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+        mouseY = (event.clientY / window.innerHeight) * 2 - 1;
+        
+        // Set target rotation (limit the range of motion)
+        targetRotationX = mouseY * 0.3; // vertical tilt
+        targetRotationY = mouseX * 0.3; // horizontal rotation
+      });
+
+      // Load the Gaussian Splat model
+      const modelUrl = `${baseUrl}/static/Headshot.ply`;
+      
+      // Create Gaussian Splats viewer
+      const viewer = new GaussianSplats3D.Viewer({
+        selfDrivenMode: false, // We'll handle the render loop ourselves
+        useBuiltInControls: false, // We'll use our own controls
+        ignoreDevicePixelRatio: false, // Use device pixel ratio for better quality
+        gpuAcceleratedSort: true, // Enable GPU-accelerated sorting
+        halfPrecisionCovariancesOnGPU: true, // Use half precision for better performance
+        shaderPrecision: 'high' // Use high precision shaders
+      });
+
+      // Add the viewer to our scene
+      viewer.init(renderer, scene, camera);
+
+      // Load the splat model
+      viewer.loadFile(modelUrl, {
+        onProgress: (progress) => {
+          loadingInfo.textContent = 'Loading model... ' + Math.round(progress * 100) + '%';
+        },
+        onLoad: () => {
+          console.log('Model loaded successfully');
+          loadingInfo.style.display = 'none';
+          
+          // Center and scale the model
+          const box = new THREE.Box3().setFromObject(viewer.rootObject);
+          const center = box.getCenter(new THREE.Vector3());
+          viewer.rootObject.position.sub(center);
+          
+          const size = box.getSize(new THREE.Vector3());
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const scale = 2 / maxDim;
+          viewer.rootObject.scale.multiplyScalar(scale);
+          
+          // Initialize rotation controls
+          const rotationX = document.getElementById('rotationX');
+          const rotationY = document.getElementById('rotationY');
+          const rotationZ = document.getElementById('rotationZ');
+          const rotationXValue = document.getElementById('rotationXValue');
+          const rotationYValue = document.getElementById('rotationYValue');
+          const rotationZValue = document.getElementById('rotationZValue');
+
+          function updateRotation() {
+            baseRotationX = (rotationX.value * Math.PI) / 180;
+            baseRotationY = (rotationY.value * Math.PI) / 180;
+            baseRotationZ = (rotationZ.value * Math.PI) / 180;
+            
+            rotationXValue.textContent = `${rotationX.value}° (${baseRotationX.toFixed(2)} rad)`;
+            rotationYValue.textContent = `${rotationY.value}° (${baseRotationY.toFixed(2)} rad)`;
+            rotationZValue.textContent = `${rotationZ.value}° (${baseRotationZ.toFixed(2)} rad)`;
+          }
+
+          rotationX.addEventListener('input', updateRotation);
+          rotationY.addEventListener('input', updateRotation);
+          rotationZ.addEventListener('input', updateRotation);
+          
+          // Set initial rotation
+          updateRotation();
+        },
+        onError: (error) => {
+          console.error('Error loading model:', error);
+          loadingInfo.textContent = 'Error loading model: ' + error.message;
+        }
+      });
+
+      // Animation loop
+      // Store base rotation from sliders
+      let baseRotationX = 0;
+      let baseRotationY = 0;
+      let baseRotationZ = 0;
+
+      // Current rotation values for smooth interpolation
+      let currentRotationX = 0;
+      let currentRotationY = 0;
+      const EASING_FACTOR = 0.08; // Adjust this value to change smoothing (0-1)
+
+      function animate() {
+        requestAnimationFrame(animate);
+        
+        if (viewer.rootObject) {
+          if (mouseInteractionEnabled) {
+            // Smoothly interpolate to target rotation
+            currentRotationX += (targetRotationX - currentRotationX) * EASING_FACTOR;
+            currentRotationY += (targetRotationY - currentRotationY) * EASING_FACTOR;
+            
+            // Apply smoothed mouse interaction on top of base rotation
+            viewer.rootObject.rotation.x = baseRotationX + currentRotationX;
+            viewer.rootObject.rotation.y = baseRotationY + currentRotationY;
+            viewer.rootObject.rotation.z = baseRotationZ;
+          } else {
+            // Smoothly return to base rotation
+            currentRotationX *= (1 - EASING_FACTOR);
+            currentRotationY *= (1 - EASING_FACTOR);
+            
+            viewer.rootObject.rotation.x = baseRotationX + currentRotationX;
+            viewer.rootObject.rotation.y = baseRotationY + currentRotationY;
+            viewer.rootObject.rotation.z = baseRotationZ;
+          }
+        }
+        
+        controls.update();
+        viewer.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+
+      // Handle window resize
+      window.addEventListener('resize', onWindowResize, false);
+      function onWindowResize() {
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+        viewer.handleResize();
+      }
+    </script>
   </body>
 </html>
