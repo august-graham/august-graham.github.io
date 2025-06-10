@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Headshot Demo - Debug Layout</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #333; /* Darker background to see borders better */
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #container {
+            display: flex;
+            flex-direction: column-reverse;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            padding: 4px;
+            gap: 4px;
+        }
+
+        #points-container {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            border: 4px solid #ff0000;
+            background: #000;
+            box-sizing: border-box;
+        }
+
+        #buttons-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            min-height: 300px;
+            flex-shrink: 0;
+            overflow: hidden;
+            border: 4px solid #00ff00;
+            background: #000;
+            box-sizing: border-box;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            pointer-events: auto;
+            border: 2px dashed #ffffff;
+            box-sizing: border-box;
+        }
+
+        @media (min-width: 769px) {
+            #container {
+                flex-direction: row;
+            }
+
+            #points-container {
+                flex: 1;
+                height: 100%;
+                min-width: 0;
+            }
+
+            #buttons-container {
+                width: 300px;
+                min-width: 300px;
+                height: 100%;
+            }
+        }
+
+        /* Hide dat.gui on mobile */
+        @media (max-width: 768px) {
+            .dg.ac {
+                display: none !important;
+            }
+        }
+
+        /* Debug info */
+        .debug-info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 1000;
+            pointer-events: none;
+            border: 1px solid #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-info">
+        Red border: Points container<br>
+        Green border: Buttons container<br>
+        White dashed: Canvas elements
+    </div>
+    <div id="container">
+        <div id="points-container"></div>
+        <div id="buttons-container"></div>
+    </div>
+
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+        import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+        import { settings, setupDevPanel } from './gui_settings.js';
+
+        // Initialize the dev panel
+        setupDevPanel();
+
+        // Scene setup for particles
+        const particlesScene = new THREE.Scene();
+        const particlesCamera = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+        const particlesRenderer = new THREE.WebGLRenderer({ antialias: true });
+        particlesCamera.position.z = 50;
+
+        // Scene setup for buttons
+        const buttonsScene = new THREE.Scene();
+        const buttonsCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+        const buttonsRenderer = new THREE.WebGLRenderer({ antialias: true });
+        buttonsCamera.position.z = 35;
+
+        // Add renderers to containers
+        document.getElementById('points-container').appendChild(particlesRenderer.domElement);
+        document.getElementById('buttons-container').appendChild(buttonsRenderer.domElement);
+
+        // Add debug info to show container sizes
+        function updateDebugInfo() {
+            const pointsContainer = document.getElementById('points-container');
+            const buttonsContainer = document.getElementById('buttons-container');
+            const pointsCanvas = particlesRenderer.domElement;
+            const buttonsCanvas = buttonsRenderer.domElement;
+            
+            const debugInfo = document.querySelector('.debug-info');
+            debugInfo.innerHTML = `
+                Red border: Points container (${pointsContainer.clientWidth}x${pointsContainer.clientHeight})<br>
+                Green border: Buttons container (${buttonsContainer.clientWidth}x${buttonsContainer.clientHeight})<br>
+                Points canvas: ${pointsCanvas.width}x${pointsCanvas.height}<br>
+                Buttons canvas: ${buttonsCanvas.width}x${buttonsCanvas.height}<br>
+                Window: ${window.innerWidth}x${window.innerHeight}
+            `;
+        }
+
+        // Set initial sizes
+        function updateSizes() {
+            const pointsContainer = document.getElementById('points-container');
+            const buttonsContainer = document.getElementById('buttons-container');
+            
+            const pointsRect = pointsContainer.getBoundingClientRect();
+            const buttonsRect = buttonsContainer.getBoundingClientRect();
+
+            // Update particles renderer
+            particlesRenderer.setSize(pointsRect.width, pointsRect.height, false);
+            particlesCamera.aspect = pointsRect.width / pointsRect.height;
+            particlesCamera.updateProjectionMatrix();
+
+            // Update buttons renderer
+            buttonsRenderer.setSize(buttonsRect.width, buttonsRect.height, false);
+            buttonsCamera.aspect = buttonsRect.width / buttonsRect.height;
+            buttonsCamera.updateProjectionMatrix();
+
+            // Update debug info
+            updateDebugInfo();
+        }
+
+        // Initial size update
+        updateSizes();
+
+        // Handle window resize and orientation change
+        window.addEventListener('resize', updateSizes);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(updateSizes, 100);
+        });
+
+        // Animation loop to keep renderers active
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Clear scenes with visible colors to see canvas boundaries
+            particlesScene.background = new THREE.Color(0x330000);  // Dark red
+            buttonsScene.background = new THREE.Color(0x003300);    // Dark green
+            
+            // Render both scenes
+            particlesRenderer.render(particlesScene, particlesCamera);
+            buttonsRenderer.render(buttonsScene, buttonsCamera);
+        }
+
+        // Start animation
+        animate();
+    </script>
+</body>
+</html> 

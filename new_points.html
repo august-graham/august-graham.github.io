@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Headshot Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #container {
+            display: flex;
+            flex-direction: column-reverse;
+            width: 100%;
+            height: 100%;
+            box-sizing: border-box;
+            padding: 4px;
+            gap: 4px;
+            max-width: 1800px;
+            margin: 0 auto;
+            padding-left: 20px;
+            padding-right: 20px;
+        }
+
+        #points-container {
+            position: relative;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            border: 4px solid #ff0000;
+            background: #000;
+            box-sizing: border-box;
+        }
+
+        #buttons-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            min-height: 300px;
+            flex-shrink: 0;
+            overflow: hidden;
+            border: 4px solid #00ff00;
+            background: #000;
+            box-sizing: border-box;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            pointer-events: auto;
+            border: 2px dashed #ffffff;
+            box-sizing: border-box;
+        }
+
+        @media (min-width: 769px) {
+            #container {
+                flex-direction: row;
+                padding-left: 40px;
+                padding-right: 40px;
+            }
+
+            #points-container {
+                flex: 1;
+                height: 100%;
+                min-width: 0;
+                width: 50%;
+            }
+
+            #buttons-container {
+                width: 50%;
+                min-width: 50%;
+                height: 100%;
+            }
+        }
+
+        /* Hide dat.gui on mobile */
+        @media (max-width: 768px) {
+            .dg.ac {
+                display: none !important;
+            }
+        }
+
+        /* Debug info */
+        .debug-info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            z-index: 1000;
+            pointer-events: none;
+            border: 1px solid #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="debug-info">
+        Red border: Points container<br>
+        Green border: Buttons container<br>
+        White dashed: Canvas elements
+    </div>
+    <div id="container">
+        <div id="points-container"></div>
+        <div id="buttons-container"></div>
+    </div>
+
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
+        import { FontLoader } from 'three/addons/loaders/FontLoader.js';
+        import { settings, setupDevPanel } from './gui_settings.js';
+
+        // Initialize the dev panel
+        setupDevPanel();
+
+        // Scene setup for particles
+        const particlesScene = new THREE.Scene();
+        const particlesCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+        const particlesRenderer = new THREE.WebGLRenderer({ antialias: true });
+        particlesCamera.position.z = 100;
+
+        // Scene setup for buttons
+        const buttonsScene = new THREE.Scene();
+        const buttonsCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
+        const buttonsRenderer = new THREE.WebGLRenderer({ antialias: true });
+        buttonsCamera.position.z = 50;
+
+        // Add renderers to containers
+        document.getElementById('points-container').appendChild(particlesRenderer.domElement);
+        document.getElementById('buttons-container').appendChild(buttonsRenderer.domElement);
+
+        // Add debug info to show container sizes
+        function updateDebugInfo() {
+            const pointsContainer = document.getElementById('points-container');
+            const buttonsContainer = document.getElementById('buttons-container');
+            const pointsCanvas = particlesRenderer.domElement;
+            const buttonsCanvas = buttonsRenderer.domElement;
+            const debugInfo = document.querySelector('.debug-info');
+            
+            if (debugInfo) {
+                debugInfo.innerHTML = `
+                    Red border: Points container (${pointsContainer.clientWidth}x${pointsContainer.clientHeight})<br>
+                    Green border: Buttons container (${buttonsContainer.clientWidth}x${buttonsContainer.clientHeight})<br>
+                    Points canvas: ${pointsCanvas.width}x${pointsCanvas.height}<br>
+                    Buttons canvas: ${buttonsCanvas.width}x${buttonsCanvas.height}<br>
+                    Window: ${window.innerWidth}x${window.innerHeight}<br>
+                    Points Z: ${particlesCamera.position.z.toFixed(1)}<br>
+                    Buttons Z: ${buttonsCamera.position.z.toFixed(1)}
+                `;
+            }
+        }
+
+        // Set initial sizes
+        function updateSizes() {
+            const pointsContainer = document.getElementById('points-container');
+            const buttonsContainer = document.getElementById('buttons-container');
+            
+            const pointsRect = pointsContainer.getBoundingClientRect();
+            const buttonsRect = buttonsContainer.getBoundingClientRect();
+
+            // Update particles renderer
+            particlesRenderer.setSize(pointsRect.width, pointsRect.height, false);
+            particlesCamera.aspect = pointsRect.width / pointsRect.height;
+            
+            // Adjust camera position based on aspect ratio
+            const pointsAspect = pointsRect.width / pointsRect.height;
+            const pointsScale = pointsAspect > 1 ? Math.sqrt(pointsAspect) : 1;
+            particlesCamera.position.z = 100 * pointsScale;
+            particlesCamera.updateProjectionMatrix();
+
+            // Update buttons renderer
+            buttonsRenderer.setSize(buttonsRect.width, buttonsRect.height, false);
+            buttonsCamera.aspect = buttonsRect.width / buttonsRect.height;
+            
+            // Use window aspect ratio to determine desktop/mobile view
+            const windowAspect = window.innerWidth / window.innerHeight;
+            const zoomFactor = windowAspect > 1 ? settings.desktopZoom : settings.mobileZoom;
+            buttonsCamera.position.z = 50 * zoomFactor;
+            buttonsCamera.updateProjectionMatrix();
+
+            // Update debug info
+            updateDebugInfo();
+        }
+
+        // Make updateSizes available globally for the GUI
+        window.updateSizes = updateSizes;
+
+        // Initial size update
+        updateSizes();
+
+        // Handle window resize and orientation change
+        window.addEventListener('resize', updateSizes);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(updateSizes, 100);
+        });
+
+        // Global settings
+        const PARTICLE_SIZE = 0.3;
+        const EASING_SPEED = 0.15;
+
+        // Mouse/touch position tracking for particles
+        const particlesMouse = {
+            x: -10000,
+            y: -10000,
+            worldX: -10000,
+            worldY: -10000
+        };
+
+        // Mouse/touch position tracking for buttons
+        const buttonsMouse = {
+            x: -10000,
+            y: -10000
+        };
+
+        // Raycaster for button interaction
+        const raycaster = new THREE.Raycaster();
+        const pointer = new THREE.Vector2();
+
+        // --- PARTICLES POINTER EVENTS ---
+        function handleParticlesPointer(event) {
+            const rect = particlesRenderer.domElement.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+                particlesMouse.x = (x / rect.width) * 2 - 1;
+                particlesMouse.y = -(y / rect.height) * 2 + 1;
+                // Convert to world coordinates
+                const vector = new THREE.Vector3(particlesMouse.x, particlesMouse.y, 0);
+                vector.unproject(particlesCamera);
+                const dir = vector.sub(particlesCamera.position).normalize();
+                const distance = -particlesCamera.position.z / dir.z;
+                const pos = particlesCamera.position.clone().add(dir.multiplyScalar(distance));
+                particlesMouse.worldX = pos.x;
+                particlesMouse.worldY = pos.y;
+            }
+        }
+        function resetParticlesPointer() {
+            particlesMouse.x = -10000;
+            particlesMouse.y = -10000;
+            particlesMouse.worldX = -10000;
+            particlesMouse.worldY = -10000;
+        }
+        particlesRenderer.domElement.addEventListener('mousemove', handleParticlesPointer);
+        particlesRenderer.domElement.addEventListener('mousedown', handleParticlesPointer);
+        particlesRenderer.domElement.addEventListener('mouseleave', resetParticlesPointer);
+        // Touch for particles
+        particlesRenderer.domElement.addEventListener('touchmove', (event) => {
+            if (event.touches.length > 0) {
+                handleParticlesPointer(event.touches[0]);
+            }
+        });
+        particlesRenderer.domElement.addEventListener('touchstart', (event) => {
+            if (event.touches.length > 0) {
+                handleParticlesPointer(event.touches[0]);
+            }
+        });
+        particlesRenderer.domElement.addEventListener('touchend', resetParticlesPointer);
+        particlesRenderer.domElement.addEventListener('touchcancel', resetParticlesPointer);
+
+        // --- BUTTONS POINTER EVENTS ---
+        function handleButtonsPointer(event) {
+            const rect = buttonsRenderer.domElement.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
+                buttonsMouse.x = (x / rect.width) * 2 - 1;
+                buttonsMouse.y = -(y / rect.height) * 2 + 1;
+                pointer.x = buttonsMouse.x;
+                pointer.y = buttonsMouse.y;
+                raycaster.setFromCamera(pointer, buttonsCamera);
+                billboards.forEach(billboard => {
+                    const wasHovered = billboard.hovered;
+                    billboard.hovered = raycaster.intersectObject(billboard.filledBox).length > 0;
+                    if (wasHovered !== billboard.hovered) {
+                        billboard.regularText.visible = !billboard.hovered;
+                        billboard.boldText.visible = billboard.hovered;
+                    }
+                });
+            }
+        }
+        function resetButtonsPointer() {
+            buttonsMouse.x = -10000;
+            buttonsMouse.y = -10000;
+            billboards.forEach(billboard => {
+                billboard.hovered = false;
+                billboard.regularText.visible = true;
+                billboard.boldText.visible = false;
+            });
+        }
+        buttonsRenderer.domElement.addEventListener('mousemove', handleButtonsPointer);
+        buttonsRenderer.domElement.addEventListener('mouseleave', resetButtonsPointer);
+        // Touch for buttons
+        buttonsRenderer.domElement.addEventListener('touchmove', (event) => {
+            if (event.touches.length > 0) {
+                handleButtonsPointer(event.touches[0]);
+            }
+        });
+        buttonsRenderer.domElement.addEventListener('touchstart', (event) => {
+            if (event.touches.length > 0) {
+                handleButtonsPointer(event.touches[0]);
+            }
+        });
+        buttonsRenderer.domElement.addEventListener('touchend', resetButtonsPointer);
+        buttonsRenderer.domElement.addEventListener('touchcancel', resetButtonsPointer);
+        // Click/tap for buttons
+        buttonsRenderer.domElement.addEventListener('click', (event) => {
+            const rect = buttonsRenderer.domElement.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            buttonsMouse.x = (x / rect.width) * 2 - 1;
+            buttonsMouse.y = -(y / rect.height) * 2 + 1;
+            pointer.x = buttonsMouse.x;
+            pointer.y = buttonsMouse.y;
+            raycaster.setFromCamera(pointer, buttonsCamera);
+            billboards.forEach((billboard, index) => {
+                if (raycaster.intersectObject(billboard.filledBox).length > 0) {
+                    event.preventDefault();
+                    const text = BILLBOARD_DATA[index].text;
+                    if (text === "August Graham") {
+                        let newColorIndex;
+                        do {
+                            newColorIndex = Math.floor(Math.random() * PARTICLE_COLORS.length);
+                        } while (newColorIndex === currentColorIndex);
+                        currentColorIndex = newColorIndex;
+                        isColorTransitioning = true;
+                    }
+                    // Add more actions for other buttons if needed
+                }
+            });
+        });
+        // Touch tap for buttons
+        buttonsRenderer.domElement.addEventListener('touchend', (event) => {
+            if (event.changedTouches.length > 0) {
+                const touch = event.changedTouches[0];
+                const rect = buttonsRenderer.domElement.getBoundingClientRect();
+                const x = touch.clientX - rect.left;
+                const y = touch.clientY - rect.top;
+                buttonsMouse.x = (x / rect.width) * 2 - 1;
+                buttonsMouse.y = -(y / rect.height) * 2 + 1;
+                pointer.x = buttonsMouse.x;
+                pointer.y = buttonsMouse.y;
+                raycaster.setFromCamera(pointer, buttonsCamera);
+                billboards.forEach((billboard, index) => {
+                    if (raycaster.intersectObject(billboard.filledBox).length > 0) {
+                        event.preventDefault();
+                        const text = BILLBOARD_DATA[index].text;
+                        if (text === "August Graham") {
+                            let newColorIndex;
+                            do {
+                                newColorIndex = Math.floor(Math.random() * PARTICLE_COLORS.length);
+                            } while (newColorIndex === currentColorIndex);
+                            currentColorIndex = newColorIndex;
+                            isColorTransitioning = true;
+                        }
+                        // Add more actions for other buttons if needed
+                    }
+                });
+            }
+        });
+
+        // Billboard settings
+        const billboards = [];
+        const BILLBOARD_SPACING = 8;
+        const BILLBOARD_START_Y = 12;
+        const BILLBOARD_X = 0; // Centered in buttons container
+        const BOX_PADDING = 1.5;
+        const ROTATION_RANGE = 0.1;
+        const HORIZONTAL_SPACING = 12;
+        const ROW_SPACINGS = [6, 10];
+
+        // Load both regular and bold fonts
+        const fontLoader = new FontLoader();
+        let regularFont, boldFont;
+        
+        function loadFont(url) {
+            return new Promise((resolve, reject) => {
+                fontLoader.load(url,
+                    (font) => resolve(font),
+                    undefined,
+                    (error) => {
+                        console.error('Font loading error:', error);
+                        reject(error);
+                    }
+                );
+            });
+        }
+
+        // Load both fonts and create billboards
+        Promise.all([
+            loadFont('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json'),
+            loadFont('https://threejs.org/examples/fonts/helvetiker_bold.typeface.json')
+        ]).then(([regular, bold]) => {
+            regularFont = regular;
+            boldFont = bold;
+            createBillboards();
+        }).catch(error => {
+            console.error('Error loading fonts:', error);
+        });
+
+        // Billboard data
+        const BILLBOARD_DATA = [
+            { text: "August Graham", size: 2.5, row: 0, column: 0 },
+            { text: "About Me", size: 2, row: 1, column: -0.5 },
+            { text: "Projects", size: 2, row: 1, column: 0.5 },
+            { text: "Contact", size: 2, row: 2, column: 0 }
+        ];
+
+        // Create particles from image
+        const INTERACTION_RADIUS = 5;
+        const geometry = new THREE.CircleGeometry(1, 32);
+        
+        // Define colors for animation
+        const PARTICLE_COLORS = [
+            new THREE.Color(0xff0000),    // bright red
+            new THREE.Color(0x00ff00),    // bright green
+            new THREE.Color(0x00ffff),    // bright cyan
+            new THREE.Color(0xff1493),    // deep pink
+            new THREE.Color(0xffd700),    // gold
+            new THREE.Color(0xff8c00),    // dark orange
+            new THREE.Color(0x9400d3)     // violet
+        ];
+        
+        const material = new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: settings.particleOpacity
+        });
+
+        // Store particles globally
+        let particles = [];
+        let isColorTransitioning = false;
+        let currentColorIndex = 0;
+
+        // Store image data globally
+        let imageCanvas;
+        let imageContext;
+        let imageData;
+
+        // Load the image
+        const img = new Image();
+        img.src = 'static/Headshot_1080.png';
+        img.onload = function() {
+            console.log("Image loaded, starting particle generation...");
+            imageCanvas = document.createElement('canvas');
+            imageContext = imageCanvas.getContext('2d');
+            imageCanvas.width = img.width;
+            imageCanvas.height = img.height;
+            imageContext.drawImage(img, 0, 0);
+            imageData = imageContext.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+            
+            generateParticles();
+            console.log(`Successfully generated ${particles.length} particles`);
+        };
+
+        function generateParticles() {
+            if (!imageData) {
+                console.error("No image data available for particle generation");
+                return;
+            }
+
+            particles = [];  // Clear any existing particles
+            const particleSpacing = Math.max(1, Math.floor(8 * (1/settings.particleDensity)));
+            const scale = 80;
+            const fadeStartY = imageCanvas.height * 5/6;
+            let particleCount = 0;
+            
+            for(let y = 0; y < imageCanvas.height; y += particleSpacing) {
+                for(let x = 0; x < imageCanvas.width; x += particleSpacing) {
+                    const i = (y * imageCanvas.width + x) * 4;
+                    const brightness = (imageData.data[i] + imageData.data[i + 1] + imageData.data[i + 2]) / 765;
+
+                    if (brightness > 0.1) {
+                        const particle = new THREE.Mesh(geometry, material.clone());
+                        particleCount++;
+                        
+                        const posX = (x - imageCanvas.width/2) * (scale/imageCanvas.width);
+                        const posY = -(y - imageCanvas.height/2) * (scale/imageCanvas.height);
+                        particle.position.x = posX;
+                        particle.position.y = posY;
+                        
+                        const fadeProgress = y > fadeStartY 
+                            ? (y - fadeStartY) / (imageCanvas.height - fadeStartY)
+                            : 0;
+                        const fadeOpacity = y > fadeStartY 
+                            ? Math.pow(1 - fadeProgress, 1.5)
+                            : 1;
+                        
+                        if (fadeOpacity < 0.01) continue;
+                        
+                        particle.originalX = posX;
+                        particle.originalY = posY;
+                        particle.originalScale = brightness * settings.particleSize;
+                        particle.baseOpacity = fadeOpacity;
+                        
+                        particle.scale.set(particle.originalScale, particle.originalScale, 1);
+                        particle.material.opacity = settings.particleOpacity * fadeOpacity;
+                        
+                        particlesScene.add(particle);
+                        particles.push(particle);
+                    }
+                }
+            }
+            console.log(`Generated ${particleCount} total particles, ${particles.length} added to scene`);
+        }
+
+        function createBillboards() {
+            if (!regularFont || !boldFont) {
+                console.error('Fonts not loaded properly');
+                return;
+            }
+
+            console.log('Creating billboards');
+
+            // First pass to calculate text heights for each row
+            const rowHeights = {};
+            BILLBOARD_DATA.forEach(data => {
+                const geometry = new TextGeometry(data.text, {
+                    font: regularFont,
+                    size: data.size,
+                    height: 0,
+                    curveSegments: 12
+                });
+                geometry.computeBoundingBox();
+                const textHeight = geometry.boundingBox.max.y - geometry.boundingBox.min.y;
+                if (!rowHeights[data.row] || textHeight > rowHeights[data.row]) {
+                    rowHeights[data.row] = textHeight;
+                }
+            });
+
+            BILLBOARD_DATA.forEach((data, index) => {
+                try {
+                    // Create regular text
+                    const geometry = new TextGeometry(data.text, {
+                        font: regularFont,
+                        size: data.size,
+                        height: 0,
+                        curveSegments: 12
+                    });
+
+                    // Create bold text
+                    const boldGeometry = new TextGeometry(data.text, {
+                        font: boldFont,
+                        size: data.size,
+                        height: 0,
+                        curveSegments: 12
+                    });
+
+                    geometry.computeBoundingBox();
+                    boldGeometry.computeBoundingBox();
+                    const textWidth = Math.max(
+                        geometry.boundingBox.max.x - geometry.boundingBox.min.x,
+                        boldGeometry.boundingBox.max.x - boldGeometry.boundingBox.min.x
+                    );
+                    const textHeight = Math.max(
+                        geometry.boundingBox.max.y - geometry.boundingBox.min.y,
+                        boldGeometry.boundingBox.max.y - boldGeometry.boundingBox.min.y
+                    );
+                    const centerOffset = -textWidth / 2;
+
+                    // Calculate Y position based on previous row heights and spacings
+                    let yPosition = BILLBOARD_START_Y;
+                    for (let row = 0; row < data.row; row++) {
+                        yPosition -= rowHeights[row]; // Subtract height of previous row
+                        yPosition -= (ROW_SPACINGS[row] || BILLBOARD_SPACING); // Add spacing after that row
+                    }
+
+                    // Calculate X position
+                    const xPosition = BILLBOARD_X + (data.column * (textWidth + HORIZONTAL_SPACING));
+
+                    // Create text meshes with white material
+                    const textMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0xffffff,
+                        transparent: false,
+                        opacity: 1
+                    });
+                    
+                    const regularMesh = new THREE.Mesh(geometry, textMaterial.clone());
+                    const boldMesh = new THREE.Mesh(boldGeometry, textMaterial.clone());
+                    boldMesh.visible = false;
+
+                    // Create box with white lines
+                    const boxWidth = textWidth + BOX_PADDING * 2;
+                    const boxHeight = textHeight + BOX_PADDING * 2;
+                    
+                    // Create rounded rectangle shape
+                    const shape = new THREE.Shape();
+                    const radius = 1;
+                    
+                    shape.moveTo(-boxWidth/2, -boxHeight/2);
+                    shape.lineTo(-boxWidth/2, boxHeight/2 - radius);
+                    shape.quadraticCurveTo(-boxWidth/2, boxHeight/2, -boxWidth/2 + radius, boxHeight/2);
+                    shape.lineTo(boxWidth/2 - radius, boxHeight/2);
+                    shape.quadraticCurveTo(boxWidth/2, boxHeight/2, boxWidth/2, boxHeight/2 - radius);
+                    shape.lineTo(boxWidth/2, -boxHeight/2);
+                    shape.lineTo(-boxWidth/2, -boxHeight/2);
+
+                    const boxGeometry = new THREE.ShapeGeometry(shape);
+                    
+                    // Create filled black background
+                    const fillMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0x000000,
+                        transparent: false,
+                        side: THREE.DoubleSide
+                    });
+                    const filledBox = new THREE.Mesh(boxGeometry, fillMaterial);
+                    filledBox.renderOrder = 0;  // Render fill behind the outline
+                    
+                    // Create white outline
+                    const boxMaterial = new THREE.LineBasicMaterial({ 
+                        color: 0xffffff,
+                        transparent: false,
+                        opacity: 1
+                    });
+                    
+                    // Create wireframe box
+                    const boxWireframe = new THREE.EdgesGeometry(boxGeometry);
+                    const boxMesh = new THREE.LineSegments(boxWireframe, boxMaterial);
+                    boxMesh.renderOrder = 2;  // Make outline render on very top
+                    boxMesh.material.depthTest = false;  // Ensure it's always on top
+
+                    // Set text render order
+                    regularMesh.renderOrder = 1;
+                    boldMesh.renderOrder = 1;
+
+                    // Create container for group animation
+                    const container = new THREE.Group();
+
+                    // Position everything relative to container
+                    container.position.set(xPosition, yPosition, 0);
+                    regularMesh.position.set(centerOffset, -textHeight/2, 0);
+                    boldMesh.position.set(centerOffset, -textHeight/2, 0);
+                    
+                    container.add(filledBox);  // Add fill first
+                    container.add(regularMesh);
+                    container.add(boldMesh);
+                    container.add(boxMesh);  // Add outline last
+
+                    // Store animation properties
+                    const billboard = {
+                        container,
+                        regularText: regularMesh,
+                        boldText: boldMesh,
+                        box: boxMesh,
+                        filledBox: filledBox,
+                        originalY: yPosition,
+                        targetRotation: 0,
+                        currentRotation: 0,
+                        rotationOffset: index * (Math.PI / 8),
+                        hovered: false,
+                        baseY: yPosition
+                    };
+
+                    buttonsScene.add(container);
+                    billboards.push(billboard);
+                    console.log(`Created billboard: ${data.text} at Y: ${yPosition}`);
+                } catch (error) {
+                    console.error(`Error creating billboard for ${data.text}:`, error);
+                }
+            });
+        }
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Update particles
+            particles.forEach(particle => {
+                const dx = particlesMouse.worldX - particle.position.x;
+                const dy = particlesMouse.worldY - particle.position.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < settings.mouseRepulsionRadius && settings.mouseRepulsion) {
+                    if (settings.mouseScaling) {
+                        const scale = 1 + (settings.mouseScaleRadius - distance) / settings.mouseScaleRadius * settings.mouseScaleFactor;
+                        particle.scale.x = particle.scale.y = particle.originalScale * scale;
+                    }
+                    
+                    const angle = Math.atan2(dy, dx);
+                    const force = (settings.mouseRepulsionRadius - distance) * settings.mouseRepulsionForce;
+                    particle.position.x -= Math.cos(angle) * force;
+                    particle.position.y -= Math.sin(angle) * force;
+                } else {
+                    particle.position.x += (particle.originalX - particle.position.x) * 0.1;
+                    particle.position.y += (particle.originalY - particle.position.y) * 0.1;
+                    particle.scale.x = particle.scale.y = particle.originalScale;
+                }
+
+                if (isColorTransitioning) {
+                    const targetColor = PARTICLE_COLORS[currentColorIndex];
+                    particle.material.color.lerp(targetColor, settings.colorTransitionSpeed);
+                }
+            });
+
+            // Update billboards
+            billboards.forEach((billboard, index) => {
+                if (billboard.hovered) {
+                    billboard.targetRotation = ROTATION_RANGE * Math.sin(Date.now() * settings.rotationSpeed + billboard.rotationOffset);
+                } else {
+                    billboard.targetRotation = 0;
+                }
+                billboard.currentRotation += (billboard.targetRotation - billboard.currentRotation) * 0.1;
+                billboard.container.rotation.z = billboard.currentRotation;
+
+                const floatOffset = Math.sin(Date.now() * settings.floatSpeed + index) * 0.5;
+                billboard.container.position.y = billboard.baseY + floatOffset;
+            });
+
+            // Render both scenes
+            particlesRenderer.render(particlesScene, particlesCamera);
+            buttonsRenderer.render(buttonsScene, buttonsCamera);
+        }
+
+        // Start animation
+        animate();
+    </script>
+</body>
+</html> 
