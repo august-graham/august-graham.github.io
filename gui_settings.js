@@ -19,21 +19,32 @@ export const settings = {
     colorTransitionSpeed: 0.05,
     rotationSpeed: 0.003,
     floatSpeed: 0.0007,
+    jiggleAmount: 0.0,    // Amount of jiggle movement
+    jiggleSpeed: 0.0,   // Speed of jiggle animation
+    animationDuration: 1.0, // Duration of enter/exit animations
+    animationSmoothness: 0.62, // Controls the smoothness of enter/exit animations (0-1)
+    colorReturnTime: 1.0, // Time in seconds for points to return to white after mouse interaction
+
+    // Color controls
+    fullColorHue: 210, // Hue for full color (electric blue) - 210 = blue
+    fullColorSaturation: 62, // Saturation for full color (0-100)
+    transitionColorHue: 242, // Hue for transition color (blue-violet)
+    transitionColorSaturation: 38, // Saturation for transition color (0-100)
 
     // Camera zoom settings (desktop = landscape, mobile = portrait)
     desktopZoom: 2,  // Used when width > height
     mobileZoom: 1.0,    // Used when width <= height
     showBorders: true,   // Global border toggle
-    returnRate: 0.1,      // Rate at which points return to original position
+    returnRate: 0.06,      // Rate at which points return to original position
     // About Me billboard animation settings
-    aboutMeExpandedHeight: 25,
+    aboutMeExpandedHeight: 20,
     aboutMeCollapsedRadius: .01,
     aboutMeExpandedRadius: 1,
     aboutMeAnimationSpeed: 0.15
 };
 
 // Function to set up the dev panel
-export function setupDevPanel() {
+export async function setupDevPanel() {
     const gui = new dat.GUI({ width: 300 });
     
     // Particle appearance folder
@@ -55,11 +66,46 @@ export function setupDevPanel() {
     mouseFolder.open();
     
     // Animation folder
-    const animationFolder = gui.addFolder('Animation');
+    const animationFolder = gui.addFolder('Particle Animations');
     animationFolder.add(settings, 'colorTransitionSpeed', 0.01, 0.2).name('Color Speed');
     animationFolder.add(settings, 'rotationSpeed', 0.001, 0.01).name('Rotation Speed');
     animationFolder.add(settings, 'floatSpeed', 0, 0.01).name('Float Speed');
+    animationFolder.add(settings, 'jiggleAmount', 0, 5).name('Jiggle Amount');
+    animationFolder.add(settings, 'jiggleSpeed', 0.001, 0.02).name('Jiggle Speed');
+    animationFolder.add(settings, 'animationDuration', 0.1, 3.0).name('Animation Duration');
+    animationFolder.add(settings, 'animationSmoothness', 0, 1).name('Animation Smoothness');
+    animationFolder.add(settings, 'colorReturnTime', 0.1, 10.0).name('Color Return Time');
     animationFolder.open();
+
+    // Color controls folder
+    const colorFolder = gui.addFolder('Color Controls');
+    colorFolder.add(settings, 'fullColorHue', 0, 360).name('Full Color Hue');
+    colorFolder.add(settings, 'fullColorSaturation', 0, 100).name('Full Color Saturation');
+    colorFolder.add(settings, 'transitionColorHue', 0, 360).name('Transition Color Hue');
+    colorFolder.add(settings, 'transitionColorSaturation', 0, 100).name('Transition Color Saturation');
+    colorFolder.open();
+
+    // Add animation controls
+    try {
+        const { triggerExit } = await import('./points.js');
+        animationFolder.add({
+            enterAnimation: () => {
+                // Reset animation state to trigger enter animation
+                window.dispatchEvent(new CustomEvent('pointsEnter'));
+            },
+            exitAnimation: () => {
+                triggerExit();
+            }
+        }, 'enterAnimation').name('Enter Animation');
+        animationFolder.add({
+            enterAnimation: () => {},
+            exitAnimation: () => {
+                triggerExit();
+            }
+        }, 'exitAnimation').name('Exit Animation');
+    } catch (e) {
+        console.warn('Could not add particle animation controls:', e);
+    }
 
     // Camera zoom folder
     const zoomFolder = gui.addFolder('Camera Zoom');
@@ -89,6 +135,4 @@ export function setupDevPanel() {
     aboutMeFolder.add(settings, 'aboutMeExpandedRadius', 0, 10).name('Expanded Radius');
     aboutMeFolder.add(settings, 'aboutMeAnimationSpeed', 0.01, 0.5).name('Animation Speed');
     aboutMeFolder.open();
-
-    return gui;
 } 

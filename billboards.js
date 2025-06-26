@@ -8,12 +8,13 @@ let regularFont, boldFont;
 let animationId;
 let billboardsContainer;
 let billboardClickCallback = null;
+let contentManager = null;
 
 const BILLBOARD_SPACING = 8;
 const BILLBOARD_START_Y = 12;
 const BILLBOARD_X = 0;
 const BOX_PADDING = 1.5;
-const ROTATION_RANGE = 0.1;
+const ROTATION_RANGE = 0.05;
 const HORIZONTAL_SPACING = 12;
 const ROW_SPACINGS = [6, 10];
 
@@ -98,48 +99,63 @@ function createBillboards() {
         let animatedWidth = boxWidth;
         let expandedWidth = boxWidth;
         // Create rounded rectangle shape (function for animation)
-        function makeShape(width, height, radius) {
+        function makeShape(width, height, radius, roundBottom = true) {
             const maxRadius = Math.min(width, height) / 2 - 0.01;
             const r = Math.max(0, Math.min(radius, maxRadius));
             const topRadius = 1;    // Constant for top corners
-            const bottomRadius = r; // Animated for bottom corners
+            const bottomRadius = roundBottom ? r : 0; // Animated or square for bottom corners
             const shape = new THREE.Shape();
             // Start at top-left
             shape.moveTo(-width/2 + topRadius, height/2);
             shape.lineTo(width/2 - topRadius, height/2);
             shape.quadraticCurveTo(width/2, height/2, width/2, height/2 - topRadius);
             shape.lineTo(width/2, -height/2 + bottomRadius);
-            shape.quadraticCurveTo(width/2, -height/2, width/2 - bottomRadius, -height/2);
-            shape.lineTo(-width/2 + bottomRadius, -height/2);
-            shape.quadraticCurveTo(-width/2, -height/2, -width/2, -height/2 + bottomRadius);
+            if (roundBottom) {
+                shape.quadraticCurveTo(width/2, -height/2, width/2 - bottomRadius, -height/2);
+                shape.lineTo(-width/2 + bottomRadius, -height/2);
+                shape.quadraticCurveTo(-width/2, -height/2, -width/2, -height/2 + bottomRadius);
+            } else {
+                shape.lineTo(width/2, -height/2);
+                shape.lineTo(-width/2, -height/2);
+            }
             shape.lineTo(-width/2, height/2 - topRadius);
             shape.quadraticCurveTo(-width/2, height/2, -width/2 + topRadius, height/2);
             return shape;
         }
         let filledBox, boxMesh, aboutMeTextMesh;
         // Create initial shape
-        let shape = makeShape(boxWidth, boxHeight, settings.aboutMeCollapsedRadius);
+        let shape;
+        if (data.text === 'About Me') {
+            // Collapsed: only top corners rounded, expanded: all corners rounded
+            shape = makeShape(boxWidth, boxHeight, settings.aboutMeCollapsedRadius, false);
+        } else {
+            // Clickable: all corners rounded
+            shape = makeShape(boxWidth, boxHeight, 1, true);
+        }
         let boxGeometry = new THREE.ShapeGeometry(shape);
         const fillMaterial = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.DoubleSide });
         filledBox = new THREE.Mesh(boxGeometry, fillMaterial);
-        filledBox.renderOrder = 0;
+        filledBox.renderOrder = data.text === 'About Me' ? 10 : 0;
         const boxMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
         const boxWireframe = new THREE.EdgesGeometry(boxGeometry);
         boxMesh = new THREE.LineSegments(boxWireframe, boxMaterial);
-        boxMesh.renderOrder = 2;
+        boxMesh.renderOrder = data.text === 'About Me' ? 12 : 2;
         boxMesh.material.depthTest = false;
-        regularMesh.renderOrder = 1;
-        boldMesh.renderOrder = 1;
+        regularMesh.renderOrder = data.text === 'About Me' ? 11 : 1;
+        boldMesh.renderOrder = data.text === 'About Me' ? 11 : 1;
         const container = new THREE.Group();
         container.position.set(xPosition, yPosition, 0);
         // Set About Me title mesh position so its top edge is always at the top of the billboard
         if (data.text === 'About Me') {
-            // Compute the top offset (title's bounding box max.y)
+            // Center horizontally in the box, align top edge to top of box with margin
+            const centerOffset = -boxWidth / 2 + (boxWidth - textWidth) / 2;
             const titleTop = geometry.boundingBox.max.y;
-            // Place the title so its top is at +animatedHeight/2 (top of the billboard)
-            regularMesh.position.set(centerOffset, boxHeight/2 - titleTop, 0);
-            boldMesh.position.set(centerOffset, boxHeight/2 - titleTop, 0);
+            const margin = 1.5; // space from top edge
+            regularMesh.position.set(centerOffset, boxHeight/2 - titleTop - margin, 0);
+            boldMesh.position.set(centerOffset, boxHeight/2 - titleTop - margin, 0);
         } else {
+            // Center horizontally and vertically in the box
+            const centerOffset = -boxWidth / 2 + (boxWidth - textWidth) / 2;
             regularMesh.position.set(centerOffset, -textHeight/2, 0);
             boldMesh.position.set(centerOffset, -textHeight/2, 0);
         }
@@ -156,7 +172,11 @@ function createBillboards() {
                 curveSegments: 8
             });
             aboutMeGeometry.computeBoundingBox();
-            aboutMeTextMesh = new THREE.Mesh(aboutMeGeometry, textMaterial.clone());
+            aboutMeTextMesh = new THREE.Mesh(aboutMeGeometry, new THREE.MeshBasicMaterial({ 
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0
+            }));
             // Compute expanded width from aboutMeTextMesh bounding box
             const aboutMeTextWidth = aboutMeGeometry.boundingBox.max.x - aboutMeGeometry.boundingBox.min.x;
             expandedWidth = Math.max(boxWidth, aboutMeTextWidth + 2 * BOX_PADDING + 4); // Add extra padding
@@ -176,6 +196,7 @@ function createBillboards() {
             rotationOffset: index * (Math.PI / 8),
             hovered: false,
             baseY: yPosition,
+            baseX: xPosition, // store original x position
             expanded: false,
             targetHeight,
             animatedHeight,
@@ -197,6 +218,8 @@ function createBillboards() {
 function animate() {
     animationId = requestAnimationFrame(animate);
     billboards.forEach((billboard, index) => {
+        // Check if any billboard is hovered, expanded, or selected
+        const anyActive = billboards.some(bb => bb.hovered || bb.expanded);
         if (BILLBOARD_DATA[index].text === 'About Me') {
             const targetH = billboard.expanded ? settings.aboutMeExpandedHeight : billboard.boxHeight;
             const targetR = billboard.expanded ? settings.aboutMeExpandedRadius : settings.aboutMeCollapsedRadius;
@@ -205,38 +228,79 @@ function animate() {
             billboard.animatedRadius += (targetR - billboard.animatedRadius) * settings.aboutMeAnimationSpeed;
             billboard.animatedWidth += (targetW - billboard.animatedWidth) * settings.aboutMeAnimationSpeed;
             // Update geometry
-            const shape = billboard.makeShape(billboard.animatedWidth, billboard.animatedHeight, billboard.animatedRadius);
+            let shape;
+            if (BILLBOARD_DATA[index].text === 'About Me') {
+                // Collapsed: only top corners rounded, expanded: all corners rounded
+                const roundBottom = billboard.animatedHeight > billboard.boxHeight + 2;
+                shape = billboard.makeShape(billboard.animatedWidth, billboard.animatedHeight, billboard.animatedRadius, roundBottom);
+            } else {
+                shape = billboard.makeShape(billboard.animatedWidth, billboard.animatedHeight, 1, true);
+            }
             billboard.filledBox.geometry.dispose();
             billboard.filledBox.geometry = new THREE.ShapeGeometry(shape);
             billboard.box.geometry.dispose();
             billboard.box.geometry = new THREE.EdgesGeometry(new THREE.ShapeGeometry(shape));
-            // Keep the top edge fixed: offset container so top stays at baseY
-            billboard.container.position.y = billboard.baseY - (billboard.animatedHeight - billboard.boxHeight) / 2 + Math.sin(Date.now() * settings.floatSpeed + index) * 0.5;
+            // Animate to center when expanded
+            let targetX = billboard.baseX;
+            let targetY = billboard.baseY - (billboard.animatedHeight - billboard.boxHeight) / 2;
+            if (billboard.expanded) {
+                targetX = 0;
+                targetY = 0;
+            }
+            billboard.container.position.x += (targetX - billboard.container.position.x) * 0.1;
+            if (billboard.hovered || billboard.expanded) {
+                billboard.container.position.y += (targetY - billboard.container.position.y) * 0.1;
+            } else {
+                const floatY = targetY + Math.sin(Date.now() * settings.floatSpeed + index) * 0.5;
+                billboard.container.position.y += (floatY - billboard.container.position.y) * 0.1;
+            }
             // Show/hide aboutMeTextMesh and adjust its position
             if (billboard.aboutMeTextMesh) {
-                billboard.aboutMeTextMesh.visible = billboard.animatedHeight > billboard.boxHeight + 10;
-                // Place text a bit below the original box, and center horizontally in expanded width
-                billboard.aboutMeTextMesh.position.x = -billboard.animatedWidth/2 + 2;
-                billboard.aboutMeTextMesh.position.y = -billboard.animatedHeight/2 + 18;
+                // Fade in when expanded, fade out when collapsed
+                const expansionProgress = (billboard.animatedHeight - billboard.boxHeight) / (settings.aboutMeExpandedHeight - billboard.boxHeight);
+                const fadeStartThreshold = 0.8;
+                const fadeProgress = Math.max(0, (expansionProgress - fadeStartThreshold) / (1 - fadeStartThreshold));
+                billboard.aboutMeTextMesh.visible = expansionProgress > fadeStartThreshold;
+                billboard.aboutMeTextMesh.material.opacity = fadeProgress;
+                // Center horizontally and position below the top edge
+                const textMargin = 8;
+                const aboutMeTextWidth = billboard.aboutMeTextMesh.geometry.boundingBox.max.x - billboard.aboutMeTextMesh.geometry.boundingBox.min.x;
+                billboard.aboutMeTextMesh.position.x = -aboutMeTextWidth / 2;
+                billboard.aboutMeTextMesh.position.y = billboard.animatedHeight/2 - textMargin;
+                // Remove hot pink border if present
+                if (billboard.hotPinkBorder) {
+                    billboard.hotPinkBorder.visible = false;
+                }
             }
             // Keep About Me title mesh at the top as height animates, and center horizontally
             if (billboard.regularText && billboard.boldText) {
-                const titleTop = billboard.regularText.geometry.boundingBox.max.y;
                 const titleWidth = billboard.regularText.geometry.boundingBox.max.x - billboard.regularText.geometry.boundingBox.min.x;
-                const centerOffset = -titleWidth / 2;
+                const centerOffset = -billboard.animatedWidth / 2 + (billboard.animatedWidth - titleWidth) / 2;
+                const titleTop = billboard.regularText.geometry.boundingBox.max.y;
+                const margin = 1.5; // space from top edge
                 billboard.regularText.position.x = centerOffset;
                 billboard.boldText.position.x = centerOffset;
-                billboard.regularText.position.y = billboard.animatedHeight/2 - titleTop;
-                billboard.boldText.position.y = billboard.animatedHeight/2 - titleTop;
+                billboard.regularText.position.y = billboard.animatedHeight/2 - titleTop - margin;
+                billboard.boldText.position.y = billboard.animatedHeight/2 - titleTop - margin;
+            }
+            if (billboard.hovered || billboard.expanded) {
+                billboard.targetRotation = 0;
+            } else {
+                billboard.targetRotation = ROTATION_RANGE * Math.sin(Date.now() * (settings.rotationSpeed * 0.5) + billboard.rotationOffset);
             }
         } else {
             // For other billboards, keep float animation
-            billboard.container.position.y = billboard.baseY + Math.sin(Date.now() * settings.floatSpeed + index) * 0.5;
-        }
-        if (billboard.hovered) {
-            billboard.targetRotation = ROTATION_RANGE * Math.sin(Date.now() * settings.rotationSpeed + billboard.rotationOffset);
-        } else {
-            billboard.targetRotation = 0;
+            if (billboard.hovered || billboard.expanded) {
+                billboard.container.position.y += (billboard.baseY - billboard.container.position.y) * 0.1;
+            } else {
+                const floatY = billboard.baseY + Math.sin(Date.now() * settings.floatSpeed + index) * 0.5;
+                billboard.container.position.y += (floatY - billboard.container.position.y) * 0.1;
+            }
+            if (billboard.hovered || billboard.expanded) {
+                billboard.targetRotation = 0;
+            } else {
+                billboard.targetRotation = ROTATION_RANGE * Math.sin(Date.now() * (settings.rotationSpeed * 0.5) + billboard.rotationOffset);
+            }
         }
         billboard.currentRotation += (billboard.targetRotation - billboard.currentRotation) * 0.1;
         billboard.container.rotation.z = billboard.currentRotation;
@@ -288,6 +352,7 @@ export function initBillboards(container, onBillboardClick) {
     buttonsScene = new THREE.Scene();
     buttonsCamera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
     buttonsRenderer = new THREE.WebGLRenderer({ antialias: true });
+    buttonsRenderer.localClippingEnabled = true; // Enable local clipping
     buttonsCamera.position.z = 50;
     raycaster = new THREE.Raycaster();
     pointer = new THREE.Vector2();
@@ -313,7 +378,8 @@ export function initBillboards(container, onBillboardClick) {
     buttonsRenderer.domElement.addEventListener('touchend', resetPointer);
     buttonsRenderer.domElement.addEventListener('touchcancel', resetPointer);
     // Add click/tap event for billboards
-    buttonsRenderer.domElement.addEventListener('click', (event) => {
+    buttonsRenderer.domElement.addEventListener('click', async (event) => {
+        console.log('Billboard clicked!');
         const rect = buttonsRenderer.domElement.getBoundingClientRect();
         const x = event.clientX - rect.left;
         const y = event.clientY - rect.top;
@@ -323,6 +389,27 @@ export function initBillboards(container, onBillboardClick) {
         billboards.forEach((billboard, index) => {
             if (raycaster.intersectObject(billboard.filledBox).length > 0) {
                 const text = BILLBOARD_DATA[index].text;
+                console.log('Billboard clicked:', text);
+                
+                // Handle content loading based on billboard text
+                if (contentManager) {
+                    if (text === 'August Graham') {
+                        console.log('Dismissing content for August Graham...');
+                        contentManager.dismissContent();
+                    } else if (text === 'About Me') {
+                        console.log('Dismissing content for About Me...');
+                        contentManager.dismissContent();
+                    } else if (text === 'Projects') {
+                        console.log('Loading projects.html...');
+                        contentManager.loadContent('projects.html');
+                    } else if (text === 'Contact') {
+                        console.log('Loading contact.html...');
+                        contentManager.loadContent('contact.html');
+                    }
+                } else {
+                    console.log('No content manager available');
+                }
+                
                 // Toggle About Me, collapse others
                 billboards.forEach((bb, i) => {
                     if (i === index && text === 'About Me') {
@@ -357,4 +444,22 @@ export function initBillboards(container, onBillboardClick) {
     });
     animate();
 }
+
+// Add function to set content manager
+export function setContentManager(manager) {
+    console.log('Billboards: setContentManager called with:', manager);
+    contentManager = manager;
+    console.log('Billboards: Content manager set to:', contentManager);
+}
+
+// Add function to dismiss content
+export function dismissContent() {
+    if (contentManager) {
+        console.log('Billboards: Dismissing content...');
+        contentManager.dismissContent();
+    } else {
+        console.log('Billboards: No content manager available for dismiss');
+    }
+}
+
 export { resize }; 

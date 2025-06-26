@@ -88,33 +88,56 @@
     }
     </script>
     <script type="module">
-        import { initPoints, resize as resizePoints, triggerColorChange } from './points.js';
-        import { initBillboards, resize as resizeBillboards } from './billboards.js';
+        import { initPoints, resize as resizePoints } from './points.js';
+        import { initBillboards, resize as resizeBillboards, setContentManager, dismissContent } from './billboards.js';
         import { setupDevPanel, settings } from './gui_settings.js';
-        const gui = setupDevPanel();
-        const pointsContainer = document.getElementById('points-container');
-        const buttonsContainer = document.getElementById('buttons-container');
-        initPoints(pointsContainer);
-        initBillboards(buttonsContainer, (text) => {
-            if (text === 'August Graham') {
-                triggerColorChange();
-            }
-        });
-        // Add onChange handlers to zoom controls
-        if (gui) {
-            const zoomFolder = gui.__folders['Camera Zoom'];
-            if (zoomFolder) {
-                zoomFolder.__controllers.forEach(ctrl => {
-                    ctrl.onChange(() => {
-                        resizePoints();
-                        resizeBillboards();
+        import { ContentManager } from './content-manager.js';
+
+        async function init() {
+            const gui = await setupDevPanel();
+            const pointsContainer = document.getElementById('points-container');
+            const buttonsContainer = document.getElementById('buttons-container');
+            
+            console.log('Initializing content manager...');
+            // Initialize content manager
+            const contentManager = new ContentManager(pointsContainer);
+            console.log('Content manager created:', contentManager);
+            
+            // Initialize points (but don't start immediately)
+            console.log('Initializing points...');
+            initPoints(pointsContainer);
+            
+            // Initialize billboards with content manager
+            console.log('Initializing billboards...');
+            initBillboards(buttonsContainer, (text) => {
+                // Removed triggerColorChange() call since color functionality was removed
+            });
+            
+            // Set content manager reference in billboards
+            console.log('Setting content manager in billboards...');
+            setContentManager(contentManager);
+
+            // Add onChange handlers to zoom controls
+            if (gui) {
+                const zoomFolder = gui.__folders['Camera Zoom'];
+                if (zoomFolder) {
+                    zoomFolder.__controllers.forEach(ctrl => {
+                        ctrl.onChange(() => {
+                            resizePoints();
+                            resizeBillboards();
+                        });
                     });
-                });
+                }
             }
+
+            if (settings.showBorders) {
+                document.body.classList.add('show-borders');
+            }
+            
+            console.log('Initialization complete');
         }
-        if (settings.showBorders) {
-            document.body.classList.add('show-borders');
-        }
+
+        init();
     </script>
 </body>
 </html> 
