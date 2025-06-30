@@ -8,10 +8,53 @@
 </head>
 <body>
     <div class="projects-section">
-        <h1>Projects</h1>
-        <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-        <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
-        <p>Sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo.</p>
+        <div class="project-container">
+            <div class="project-title" onclick="toggleProject(this)">cocoon (2025)</div>
+            <div class="project-content">
+                <div class="video-container" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; margin: 20px 0;">
+                    <iframe width="560" height="315" src="https://www.youtube.com/embed/67xEWL6ddZw?si=MOxzLMbUNN6yuFaw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+                </div>
+                <p>'cocoon' is a multimedia performance create for NYU's Interactive Digital Media program. The piece features poetry by Sarah Kim, dance by Adeline Ferolo and live visuals by August Graham.</p>
+            </div>
+        </div>
+        <div class="project-container">
+            <div class="project-title" onclick="toggleProject(this)">VFX Reel</div>
+            <div class="project-content">
+                <div class="video-container" style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; margin: 20px 0;">
+                    <iframe width="560" height="315" src="https://www.youtube.com/embed/ikDPdZyYoNc?si=W5_xRAHgPSkYCqIn" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+                </div>
+            </div>
+        </div>
+
     </div>
+    <script>
+    // Function to initialize project dropdowns
+    function initializeProjectDropdowns() {
+        document.querySelectorAll('.project-content').forEach(function(el) {
+            el.classList.remove('open');
+        });
+    }
+    
+    function toggleProject(titleElem) {
+        const content = titleElem.nextElementSibling;
+        const allContents = document.querySelectorAll('.project-content');
+        // Collapse all
+        allContents.forEach(function(el) {
+            el.classList.remove('open');
+        });
+        // Toggle the clicked one
+        if (!content.classList.contains('open')) {
+            content.classList.add('open');
+        }
+    }
+    
+    // Initialize immediately if DOM is ready, otherwise wait for DOMContentLoaded
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializeProjectDropdowns);
+    } else {
+        // DOM is already ready, initialize immediately
+        initializeProjectDropdowns();
+    }
+    </script>
 </body>
 </html> 

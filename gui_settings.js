@@ -1,5 +1,8 @@
 import * as dat from 'https://cdn.skypack.dev/dat.gui';
 
+// Development mode flag - set to false to disable dev GUI and debug features
+export const DEV_MODE = false;
+
 // Settings object with default values
 export const settings = {
     // Particle appearance
@@ -34,10 +37,10 @@ export const settings = {
     // Camera zoom settings (desktop = landscape, mobile = portrait)
     desktopZoom: 2,  // Used when width > height
     mobileZoom: 1.0,    // Used when width <= height
-    showBorders: true,   // Global border toggle
+    showBorders: false,   // Global border toggle - disabled by default
     returnRate: 0.06,      // Rate at which points return to original position
     // About Me billboard animation settings
-    aboutMeExpandedHeight: 20,
+    aboutMeExpandedHeight: 25,
     aboutMeCollapsedRadius: .01,
     aboutMeExpandedRadius: 1,
     aboutMeAnimationSpeed: 0.15
@@ -45,6 +48,12 @@ export const settings = {
 
 // Function to set up the dev panel
 export async function setupDevPanel() {
+    // Only create GUI if DEV_MODE is enabled
+    if (!DEV_MODE) {
+        console.log('DEV_MODE is disabled. Skipping GUI setup.');
+        return null;
+    }
+
     const gui = new dat.GUI({ width: 300 });
     
     // Particle appearance folder
@@ -135,4 +144,6 @@ export async function setupDevPanel() {
     aboutMeFolder.add(settings, 'aboutMeExpandedRadius', 0, 10).name('Expanded Radius');
     aboutMeFolder.add(settings, 'aboutMeAnimationSpeed', 0.01, 0.5).name('Animation Speed');
     aboutMeFolder.open();
+
+    return gui;
 } 

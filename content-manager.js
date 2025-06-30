@@ -11,21 +11,12 @@ class ContentManager {
         
         // Create overlay container for HTML content
         this.overlayContainer = document.createElement('div');
-        this.overlayContainer.style.position = 'absolute';
-        this.overlayContainer.style.top = '0';
-        this.overlayContainer.style.left = '0';
-        this.overlayContainer.style.width = '100%';
-        this.overlayContainer.style.height = '100%';
-        this.overlayContainer.style.zIndex = '1000';
+        this.overlayContainer.className = 'overlay-container';
+        // Only set dynamic styles for transitions
         this.overlayContainer.style.opacity = '0';
         this.overlayContainer.style.pointerEvents = 'none';
-        this.overlayContainer.style.overflow = 'auto';
-        this.overlayContainer.style.padding = '20px';
-        this.overlayContainer.style.boxSizing = 'border-box';
-        
         // Ensure points container has relative positioning
         this.pointsContainer.style.position = 'relative';
-        
         // Append overlay to points container
         this.pointsContainer.appendChild(this.overlayContainer);
         
@@ -36,6 +27,13 @@ class ContentManager {
     // Load content from an HTML file
     async loadContent(htmlFile) {
         console.log('ContentManager.loadContent called with:', htmlFile);
+        
+        // If the same content is already loaded, do nothing
+        if (this.currentContent === htmlFile && this.overlayContainer.style.opacity === '1') {
+            console.log('Content already loaded, ignoring request');
+            return;
+        }
+        
         if (this.isTransitioning) {
             console.log('Already transitioning, ignoring request');
             return;
@@ -81,6 +79,14 @@ class ContentManager {
             // Replace the content
             console.log('Replacing overlay content...');
             this.overlayContainer.innerHTML = content;
+            // Ensure style.css is loaded for dynamically loaded content
+            if (!document.getElementById('dynamic-style-css')) {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'style.css';
+                link.id = 'dynamic-style-css';
+                document.head.appendChild(link);
+            }
             console.log('Content replaced successfully');
             
             // Scroll to top before transition starts
@@ -125,66 +131,37 @@ class ContentManager {
             }
             const content = await response.text();
             console.log('Raw content length:', content.length);
-            
             // Extract body content from HTML
             const parser = new DOMParser();
             const doc = parser.parseFromString(content, 'text/html');
             const bodyContent = doc.body.innerHTML;
             console.log('Extracted body content length:', bodyContent.length);
             
-            // Add CSS styles directly to ensure white text
-            const styledContent = `
-                <style>
-                    .projects-section {
-                        max-width: 800px;
-                        margin: 0 auto;
-                        padding: 40px 20px;
-                        font-family: Arial, sans-serif;
-                        line-height: 1.6;
-                        color: white !important;
+            // Extract and execute JavaScript from script tags
+            const scripts = doc.querySelectorAll('script');
+            scripts.forEach(script => {
+                if (script.textContent) {
+                    console.log('Executing script from loaded content');
+                    try {
+                        // Create a new script element and execute it
+                        const newScript = document.createElement('script');
+                        newScript.textContent = script.textContent;
+                        document.head.appendChild(newScript);
+                        // Remove the script after execution to avoid duplicates
+                        document.head.removeChild(newScript);
+                    } catch (error) {
+                        console.error('Error executing script from loaded content:', error);
                     }
-                    .projects-section h1 {
-                        text-align: center;
-                        font-size: 2.5rem;
-                        margin-bottom: 30px;
-                        color: white !important;
-                    }
-                    .projects-section p {
-                        font-size: 1.1rem;
-                        color: white !important;
-                        margin-bottom: 20px;
-                    }
-                    .projects-section strong {
-                        color: white !important;
-                    }
-                    .projects-section a {
-                        color: #4fc3f7 !important;
-                        text-decoration: none;
-                        transition: color 0.3s ease;
-                    }
-                    .projects-section a:hover {
-                        color: #81d4fa !important;
-                        text-decoration: underline;
-                    }
-                    * {
-                        color: white !important;
-                    }
-                </style>
-                ${bodyContent}
-            `;
+                }
+            });
             
-            // Cache the content
-            this.contentCache.set(htmlFile, styledContent);
+            // No injected styles, just return the content
+            this.contentCache.set(htmlFile, bodyContent);
             console.log('Content cached successfully');
-            
-            return styledContent;
+            return bodyContent;
         } catch (error) {
             console.error(`Failed to load ${htmlFile}:`, error);
-            return `<div style="padding: 20px; color: white; text-align: center;">
-                <h2>Error Loading Content</h2>
-                <p>Failed to load: ${htmlFile}</p>
-                <p>${error.message}</p>
-            </div>`;
+            return `<div class="error-message"><h2>Error Loading Content</h2><p>Failed to load: ${htmlFile}</p><p>${error.message}</p></div>`;
         }
     }
 

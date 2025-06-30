@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { settings } from './gui_settings.js';
+import { settings, DEV_MODE } from './gui_settings.js';
 
 let particlesScene, particlesCamera, particlesRenderer, particles = [], isColorTransitioning = false, currentColorIndex = 0;
 let imageCanvas = document.createElement('canvas');
@@ -211,6 +211,16 @@ function triggerEnter() {
 }
 
 function updateDebugDisplay(jiggleAmount, scale) {
+    // Only show debug display if DEV_MODE is enabled
+    if (!DEV_MODE) {
+        // Remove debug display if it exists and DEV_MODE is disabled
+        if (debugDisplay) {
+            debugDisplay.remove();
+            debugDisplay = null;
+        }
+        return;
+    }
+
     if (!debugDisplay) {
         debugDisplay = document.createElement('div');
         debugDisplay.style.position = 'fixed';
@@ -421,7 +431,8 @@ export function initPoints(container) {
         antialias: true,
         alpha: true
     });
-    particlesCamera.position.z = 100;
+    particlesCamera.position.z = 90;
+    particlesCamera.position.y = 5;
     container.appendChild(particlesRenderer.domElement);
     resize();
     

@@ -117,7 +117,7 @@
             console.log('Setting content manager in billboards...');
             setContentManager(contentManager);
 
-            // Add onChange handlers to zoom controls
+            // Add onChange handlers to zoom controls only if GUI exists
             if (gui) {
                 const zoomFolder = gui.__folders['Camera Zoom'];
                 if (zoomFolder) {
@@ -130,6 +130,7 @@
                 }
             }
 
+            // Only add show-borders class if showBorders is true
             if (settings.showBorders) {
                 document.body.classList.add('show-borders');
             }

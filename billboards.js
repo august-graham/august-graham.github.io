@@ -15,17 +15,23 @@ const BILLBOARD_START_Y = 12;
 const BILLBOARD_X = 0;
 const BOX_PADDING = 1.5;
 const ROTATION_RANGE = 0.05;
-const HORIZONTAL_SPACING = 12;
-const ROW_SPACINGS = [6, 10];
+const HORIZONTAL_SPACING = 6;
+const ROW_SPACINGS = [6, 5];
 
 const BILLBOARD_DATA = [
     { text: "August Graham", size: 2.5, row: 0, column: 0 },
-    { text: "About Me", size: 2, row: 1, column: -0.5 },
-    { text: "Projects", size: 2, row: 1, column: 0.5 },
-    { text: "Contact", size: 2, row: 2, column: 0 }
+    { text: "About Me", size: 2, row: 1, column: -0.4 },
+            { text: "Works", size: 2, row: 1, column: -.5 },
+    { text: "Contact", size: 2, row: 2, column: -0.4 },
+    { text: "Resume", size: 2, row: 2, column: 0.6 }
 ];
 
-const ABOUT_ME_TEXT = `August Graham is a multimedia artist\nbased in Brooklyn building interactive\nand immersive experiences for musicians,\nbrands, and beyond.`;
+const ABOUT_ME_TEXT = `August Graham is a
+multimedia artist based in
+Brooklyn building interactive
+and immersive experiences
+for musicians, brands,
+and beyond.`;
 
 function loadFont(url) {
     return new Promise((resolve, reject) => {
@@ -52,6 +58,39 @@ function createBillboards() {
             rowHeights[data.row] = textHeight;
         }
     });
+    // Calculate row widths and total widths for centering
+    const rowWidths = {};
+    const rowBillboards = {};
+    BILLBOARD_DATA.forEach((data, index) => {
+        if (!rowBillboards[data.row]) {
+            rowBillboards[data.row] = [];
+        }
+        rowBillboards[data.row].push({ data, index });
+    });
+    
+    // Calculate total width for each row
+    Object.keys(rowBillboards).forEach(row => {
+        const rowItems = rowBillboards[row];
+        let totalWidth = 0;
+        rowItems.forEach(({ data }) => {
+            const geometry = new TextGeometry(data.text, {
+                font: regularFont,
+                size: data.size,
+                height: 0,
+                curveSegments: 12
+            });
+            geometry.computeBoundingBox();
+            const textWidth = geometry.boundingBox.max.x - geometry.boundingBox.min.x;
+            const boxWidth = textWidth + BOX_PADDING * 2;
+            totalWidth += boxWidth;
+        });
+        // Add spacing between items
+        if (rowItems.length > 1) {
+            totalWidth += HORIZONTAL_SPACING * (rowItems.length - 1);
+        }
+        rowWidths[row] = totalWidth;
+    });
+
     BILLBOARD_DATA.forEach((data, index) => {
         // Regular and bold text
         const geometry = new TextGeometry(data.text, {
@@ -82,19 +121,39 @@ function createBillboards() {
             yPosition -= rowHeights[row];
             yPosition -= (ROW_SPACINGS[row] || BILLBOARD_SPACING);
         }
-        const xPosition = BILLBOARD_X + (data.column * (textWidth + HORIZONTAL_SPACING));
+        
+        // Calculate centered x position for this row
+        const rowItems = rowBillboards[data.row];
+        const rowIndex = rowItems.findIndex(item => item.index === index);
+        let xPosition = BILLBOARD_X - rowWidths[data.row] / 2; // Start from left edge of row
+        
+        // Add width of previous items in the row
+        for (let i = 0; i < rowIndex; i++) {
+            const prevData = rowItems[i].data;
+            const prevGeometry = new TextGeometry(prevData.text, {
+                font: regularFont,
+                size: prevData.size,
+                height: 0,
+                curveSegments: 12
+            });
+            prevGeometry.computeBoundingBox();
+            const prevTextWidth = prevGeometry.boundingBox.max.x - prevGeometry.boundingBox.min.x;
+            const prevBoxWidth = prevTextWidth + BOX_PADDING * 2;
+            xPosition += prevBoxWidth + HORIZONTAL_SPACING;
+        }
+        
+        // Add half the width of current item to center it
+        const boxWidth = textWidth + BOX_PADDING * 2;
+        xPosition += boxWidth / 2;
         const textMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
         const regularMesh = new THREE.Mesh(geometry, textMaterial.clone());
         const boldMesh = new THREE.Mesh(boldGeometry, textMaterial.clone());
         boldMesh.visible = false;
-        const boxWidth = textWidth + BOX_PADDING * 2;
         const boxHeight = textHeight + BOX_PADDING * 2;
         // For About Me, start collapsed, but store expanded/collapsed state
         let expanded = false;
         let targetHeight = boxHeight;
         let animatedHeight = boxHeight;
-        let targetRadius = settings.aboutMeCollapsedRadius;
-        let animatedRadius = settings.aboutMeCollapsedRadius;
         let targetWidth = boxWidth;
         let animatedWidth = boxWidth;
         let expandedWidth = boxWidth;
@@ -126,8 +185,8 @@ function createBillboards() {
         // Create initial shape
         let shape;
         if (data.text === 'About Me') {
-            // Collapsed: only top corners rounded, expanded: all corners rounded
-            shape = makeShape(boxWidth, boxHeight, settings.aboutMeCollapsedRadius, false);
+            // Always all corners rounded
+            shape = makeShape(boxWidth, boxHeight, 1, true);
         } else {
             // Clickable: all corners rounded
             shape = makeShape(boxWidth, boxHeight, 1, true);
@@ -137,6 +196,7 @@ function createBillboards() {
         filledBox = new THREE.Mesh(boxGeometry, fillMaterial);
         filledBox.renderOrder = data.text === 'About Me' ? 10 : 0;
         const boxMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+        boxMaterial.linewidth = 1; // Make outlines 1px thicker
         const boxWireframe = new THREE.EdgesGeometry(boxGeometry);
         boxMesh = new THREE.LineSegments(boxWireframe, boxMaterial);
         boxMesh.renderOrder = data.text === 'About Me' ? 12 : 2;
@@ -179,7 +239,7 @@ function createBillboards() {
             }));
             // Compute expanded width from aboutMeTextMesh bounding box
             const aboutMeTextWidth = aboutMeGeometry.boundingBox.max.x - aboutMeGeometry.boundingBox.min.x;
-            expandedWidth = Math.max(boxWidth, aboutMeTextWidth + 2 * BOX_PADDING + 4); // Add extra padding
+            expandedWidth = Math.max(boxWidth, aboutMeTextWidth + 2 * BOX_PADDING + 1); // Reduced extra padding from 4 to 1
             aboutMeTextMesh.position.set(-expandedWidth/2 + 2, -boxHeight/2 - 8, 0.1);
             aboutMeTextMesh.visible = false;
             container.add(aboutMeTextMesh);
@@ -200,8 +260,6 @@ function createBillboards() {
             expanded: false,
             targetHeight,
             animatedHeight,
-            targetRadius,
-            animatedRadius,
             aboutMeTextMesh,
             boxWidth,
             boxHeight,
@@ -222,17 +280,14 @@ function animate() {
         const anyActive = billboards.some(bb => bb.hovered || bb.expanded);
         if (BILLBOARD_DATA[index].text === 'About Me') {
             const targetH = billboard.expanded ? settings.aboutMeExpandedHeight : billboard.boxHeight;
-            const targetR = billboard.expanded ? settings.aboutMeExpandedRadius : settings.aboutMeCollapsedRadius;
             const targetW = billboard.expanded ? billboard.expandedWidth : billboard.boxWidth;
             billboard.animatedHeight += (targetH - billboard.animatedHeight) * settings.aboutMeAnimationSpeed;
-            billboard.animatedRadius += (targetR - billboard.animatedRadius) * settings.aboutMeAnimationSpeed;
             billboard.animatedWidth += (targetW - billboard.animatedWidth) * settings.aboutMeAnimationSpeed;
             // Update geometry
             let shape;
             if (BILLBOARD_DATA[index].text === 'About Me') {
-                // Collapsed: only top corners rounded, expanded: all corners rounded
-                const roundBottom = billboard.animatedHeight > billboard.boxHeight + 2;
-                shape = billboard.makeShape(billboard.animatedWidth, billboard.animatedHeight, billboard.animatedRadius, roundBottom);
+                // Always all corners rounded
+                shape = billboard.makeShape(billboard.animatedWidth, billboard.animatedHeight, 1, true);
             } else {
                 shape = billboard.makeShape(billboard.animatedWidth, billboard.animatedHeight, 1, true);
             }
@@ -247,12 +302,14 @@ function animate() {
                 targetX = 0;
                 targetY = 0;
             }
-            billboard.container.position.x += (targetX - billboard.container.position.x) * 0.1;
             if (billboard.hovered || billboard.expanded) {
+                billboard.container.position.x += (targetX - billboard.container.position.x) * 0.1;
                 billboard.container.position.y += (targetY - billboard.container.position.y) * 0.1;
             } else {
                 const floatY = targetY + Math.sin(Date.now() * settings.floatSpeed + index) * 0.5;
+                const wiggleX = targetX + Math.sin(Date.now() * settings.jiggleSpeed + index * 0.5) * settings.jiggleAmount;
                 billboard.container.position.y += (floatY - billboard.container.position.y) * 0.1;
+                billboard.container.position.x += (wiggleX - billboard.container.position.x) * 0.1;
             }
             // Show/hide aboutMeTextMesh and adjust its position
             if (billboard.aboutMeTextMesh) {
@@ -289,12 +346,15 @@ function animate() {
                 billboard.targetRotation = ROTATION_RANGE * Math.sin(Date.now() * (settings.rotationSpeed * 0.5) + billboard.rotationOffset);
             }
         } else {
-            // For other billboards, keep float animation
+            // For other billboards, keep float animation and add horizontal wiggle
             if (billboard.hovered || billboard.expanded) {
                 billboard.container.position.y += (billboard.baseY - billboard.container.position.y) * 0.1;
+                billboard.container.position.x += (billboard.baseX - billboard.container.position.x) * 0.1;
             } else {
                 const floatY = billboard.baseY + Math.sin(Date.now() * settings.floatSpeed + index) * 0.5;
+                const wiggleX = billboard.baseX + Math.sin(Date.now() * settings.jiggleSpeed + index * 0.5) * settings.jiggleAmount;
                 billboard.container.position.y += (floatY - billboard.container.position.y) * 0.1;
+                billboard.container.position.x += (wiggleX - billboard.container.position.x) * 0.1;
             }
             if (billboard.hovered || billboard.expanded) {
                 billboard.targetRotation = 0;
@@ -354,14 +414,15 @@ export function initBillboards(container, onBillboardClick) {
     buttonsRenderer = new THREE.WebGLRenderer({ antialias: true });
     buttonsRenderer.localClippingEnabled = true; // Enable local clipping
     buttonsCamera.position.z = 50;
+    buttonsCamera.position.y = 5;
     raycaster = new THREE.Raycaster();
     pointer = new THREE.Vector2();
     container.appendChild(buttonsRenderer.domElement);
     resize();
     window.addEventListener('resize', resize);
     Promise.all([
-        loadFont('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json'),
-        loadFont('https://threejs.org/examples/fonts/helvetiker_bold.typeface.json')
+        loadFont('/fonts/Space%20Mono_Regular.json'),
+        loadFont('/fonts/Space%20Mono_Bold.json')
     ]).then(([regular, bold]) => {
         regularFont = regular;
         boldFont = bold;
@@ -397,14 +458,16 @@ export function initBillboards(container, onBillboardClick) {
                         console.log('Dismissing content for August Graham...');
                         contentManager.dismissContent();
                     } else if (text === 'About Me') {
-                        console.log('Dismissing content for About Me...');
-                        contentManager.dismissContent();
-                    } else if (text === 'Projects') {
-                        console.log('Loading projects.html...');
-                        contentManager.loadContent('projects.html');
+                        console.log('About Me clicked - no content manager action');
+                            } else if (text === 'Works') {
+            console.log('Loading projects.html...');
+            contentManager.loadContent('projects.html');
                     } else if (text === 'Contact') {
                         console.log('Loading contact.html...');
                         contentManager.loadContent('contact.html');
+                    } else if (text === 'Resume') {
+                        console.log('Opening resume...');
+                        window.open('https://drive.google.com/file/d/1Fgj45UGm6Unk697lO467bJZt9k7zM7cn/view?usp=sharing', '_blank');
                     }
                 } else {
                     console.log('No content manager available');
