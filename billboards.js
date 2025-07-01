@@ -10,6 +10,12 @@ let billboardsContainer;
 let billboardClickCallback = null;
 let contentManager = null;
 
+// Mobile detection and optimization
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+const MOBILE_ANIMATION_THROTTLE = isMobile ? 30 : 60; // 30fps on mobile, 60fps on desktop
+let lastAnimationTime = 0;
+
 const BILLBOARD_SPACING = 8;
 const BILLBOARD_START_Y = 12;
 const BILLBOARD_X = 0;
@@ -275,6 +281,18 @@ function createBillboards() {
 
 function animate() {
     animationId = requestAnimationFrame(animate);
+    
+    // Throttle animation for mobile devices
+    const now = performance.now();
+    const deltaTime = now - lastAnimationTime;
+    const targetFrameTime = 1000 / MOBILE_ANIMATION_THROTTLE;
+    
+    if (deltaTime < targetFrameTime) {
+        return; // Skip frame if not enough time has passed
+    }
+    
+    lastAnimationTime = now;
+    
     billboards.forEach((billboard, index) => {
         // Check if any billboard is hovered, expanded, or selected
         const anyActive = billboards.some(bb => bb.hovered || bb.expanded);

@@ -16,6 +16,15 @@ let enterProgress = 0;
 let debugDisplay;
 let onExitComplete = null; // Callback for when exit animation completes
 
+// Mobile detection and optimization
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+// Mobile-specific settings
+const MOBILE_PARTICLE_DENSITY_MULTIPLIER = 1;
+const MOBILE_ANIMATION_THROTTLE = isMobile ? 30 : 60; // 30fps on mobile, 60fps on desktop
+let lastAnimationTime = 0;
+
 const PARTICLE_SIZE = 0.3;
 const EASING_SPEED = 0.15;
 const INTERACTION_RADIUS = 5;
@@ -132,7 +141,9 @@ function generateParticles() {
     });
     particles = [];
 
-    const particleSpacing = Math.max(1, Math.floor(8 * (1/settings.particleDensity)));
+    // Apply mobile optimization for particle density
+    const effectiveDensity = isMobile ? settings.particleDensity * MOBILE_PARTICLE_DENSITY_MULTIPLIER : settings.particleDensity;
+    const particleSpacing = Math.max(1, Math.floor(8 * (1/effectiveDensity)));
     const scale = 80;
     const fadeStartY = imageCanvas.height * 5/6;
     
@@ -242,7 +253,18 @@ function updateDebugDisplay(jiggleAmount, scale) {
 
 function animate() {
     animationId = requestAnimationFrame(animate);
-    const dt = 1/60; // Assume 60fps for simplicity
+    
+    // Throttle animation for mobile devices
+    const now = performance.now();
+    const deltaTime = now - lastAnimationTime;
+    const targetFrameTime = 1000 / MOBILE_ANIMATION_THROTTLE;
+    
+    if (deltaTime < targetFrameTime) {
+        return; // Skip frame if not enough time has passed
+    }
+    
+    lastAnimationTime = now;
+    const dt = 1/MOBILE_ANIMATION_THROTTLE; // Use actual frame rate
     const currentTime = Date.now() / 1000; // Current time in seconds
 
     if (isExiting) {
@@ -457,18 +479,51 @@ export function initPoints(container) {
     // Add event listener for enter animation
     window.addEventListener('pointsEnter', triggerEnter);
 
-    // Pointer events
+    // Pointer events with mobile optimizations
     particlesRenderer.domElement.addEventListener('mousemove', handlePointer);
     particlesRenderer.domElement.addEventListener('mousedown', handlePointer);
     particlesRenderer.domElement.addEventListener('mouseleave', resetPointer);
-    particlesRenderer.domElement.addEventListener('touchmove', (event) => {
-        if (event.touches.length > 0) handlePointer(event.touches[0]);
-    });
-    particlesRenderer.domElement.addEventListener('touchstart', (event) => {
-        if (event.touches.length > 0) handlePointer(event.touches[0]);
-    });
-    particlesRenderer.domElement.addEventListener('touchend', resetPointer);
-    particlesRenderer.domElement.addEventListener('touchcancel', resetPointer);
+    
+    // Optimized touch events for mobile
+    if (isTouchDevice) {
+        let touchTimeout;
+        particlesRenderer.domElement.addEventListener('touchmove', (event) => {
+            event.preventDefault(); // Prevent scrolling
+            if (event.touches.length > 0) {
+                clearTimeout(touchTimeout);
+                handlePointer(event.touches[0]);
+                // Throttle touch events on mobile
+                touchTimeout = setTimeout(() => {}, 16); // ~60fps max
+            }
+        }, { passive: false });
+        
+        particlesRenderer.domElement.addEventListener('touchstart', (event) => {
+            event.preventDefault(); // Prevent scrolling
+            if (event.touches.length > 0) {
+                handlePointer(event.touches[0]);
+            }
+        }, { passive: false });
+        
+        particlesRenderer.domElement.addEventListener('touchend', (event) => {
+            event.preventDefault();
+            resetPointer();
+        }, { passive: false });
+        
+        particlesRenderer.domElement.addEventListener('touchcancel', (event) => {
+            event.preventDefault();
+            resetPointer();
+        }, { passive: false });
+    } else {
+        // Desktop touch events (fallback)
+        particlesRenderer.domElement.addEventListener('touchmove', (event) => {
+            if (event.touches.length > 0) handlePointer(event.touches[0]);
+        });
+        particlesRenderer.domElement.addEventListener('touchstart', (event) => {
+            if (event.touches.length > 0) handlePointer(event.touches[0]);
+        });
+        particlesRenderer.domElement.addEventListener('touchend', resetPointer);
+        particlesRenderer.domElement.addEventListener('touchcancel', resetPointer);
+    }
 
     // Handle window resize
     window.addEventListener('resize', resize);

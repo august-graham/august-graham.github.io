@@ -3,30 +3,33 @@ import * as dat from 'https://cdn.skypack.dev/dat.gui';
 // Development mode flag - set to false to disable dev GUI and debug features
 export const DEV_MODE = false;
 
-// Settings object with default values
+// Mobile detection
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+// Settings object with default values (optimized for mobile)
 export const settings = {
     // Particle appearance
-    particleSize: 0.3,
+    particleSize: isMobile ? 0.4 : 0.3, // Slightly larger on mobile for better visibility
     particleOpacity: 0.8,
-    particleDensity: 1.0,
+    particleDensity: isMobile ? 0.6 : 1.0, // Reduced density on mobile
 
     // Mouse interaction
     mouseRepulsion: true,
-    mouseRepulsionRadius: 6,
-    mouseRepulsionForce: 0.1,
+    mouseRepulsionRadius: isMobile ? 8 : 6, // Larger radius on mobile for easier interaction
+    mouseRepulsionForce: isMobile ? 0.08 : 0.1, // Slightly reduced force on mobile
     mouseScaling: true,
-    mouseScaleRadius: 5,
-    mouseScaleFactor: 1.5,
+    mouseScaleRadius: isMobile ? 6 : 5, // Larger scale radius on mobile
+    mouseScaleFactor: isMobile ? 1.3 : 1.5, // Reduced scale factor on mobile
     
     // Animation
     colorTransitionSpeed: 0.05,
-    rotationSpeed: 0.003,
-    floatSpeed: 0.0007,
+    rotationSpeed: isMobile ? 0.002 : 0.003, // Reduced rotation on mobile
+    floatSpeed: isMobile ? 0.0005 : 0.0007, // Reduced float speed on mobile
     jiggleAmount: 0.0,    // Amount of jiggle movement
     jiggleSpeed: 0.0,   // Speed of jiggle animation
-    animationDuration: 1.0, // Duration of enter/exit animations
+    animationDuration: isMobile ? 0.8 : 1.0, // Faster animations on mobile
     animationSmoothness: 0.62, // Controls the smoothness of enter/exit animations (0-1)
-    colorReturnTime: 1.0, // Time in seconds for points to return to white after mouse interaction
+    colorReturnTime: isMobile ? 0.8 : 1.0, // Faster color return on mobile
 
     // Color controls
     fullColorHue: 210, // Hue for full color (electric blue) - 210 = blue
