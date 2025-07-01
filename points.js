@@ -143,7 +143,7 @@ function generateParticles() {
 
     // Apply mobile optimization for particle density
     const effectiveDensity = isMobile ? settings.particleDensity * MOBILE_PARTICLE_DENSITY_MULTIPLIER : settings.particleDensity;
-    const particleSpacing = Math.max(1, Math.floor(8 * (1/effectiveDensity)));
+    const particleSpacing = Math.max(1, Math.floor(2 * (1/effectiveDensity))); // Reduced from 8 to 2 for 4x density increase
     const scale = 80;
     const fadeStartY = imageCanvas.height * 5/6;
     
