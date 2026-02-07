@@ -1,174 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>August Graham</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background: #000;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-        }
-        #container {
-            display: flex;
-            flex-direction: column-reverse;
-            width: 100%;
-            height: 100%;
-            box-sizing: border-box;
-            padding: 4px;
-            gap: 4px;
-            max-width: 1800px;
-            margin: 0 auto;
-        }
-        #points-container {
-            position: relative;
-            width: 100%;
-            flex: 1;
-            min-height: 0;
-            overflow: hidden;
-            border: 4px solid #ff0000;
-            background: #000;
-            box-sizing: border-box;
-        }
-        #buttons-container {
-            position: relative;
-            width: 100%;
-            height: 276px;
-            min-height: 276px;
-            flex-shrink: 0;
-            overflow: hidden;
-            border: 4px solid #00ff00;
-            background: #000;
-            box-sizing: border-box;
-        }
-        @media (min-width: 769px) {
-            #container {
-                flex-direction: row;
-                padding-left: 40px;
-                padding-right: 40px;
-            }
-            #points-container {
-                flex: 1;
-                height: 100%;
-                min-width: 0;
-                width: 50%;
-            }
-            #buttons-container {
-                width: 50%;
-                min-width: 50%;
-                height: 100%;
-            }
-        }
-        #points-container,
-        #buttons-container {
-            border-width: 4px;
-            border-style: solid;
-        }
-        body:not(.show-borders) #points-container,
-        body:not(.show-borders) #buttons-container {
-            border: none !important;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>August Graham's Portfolio</title>
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="container">
-        <div id="points-container"></div>
-        <div id="buttons-container"></div>
-    </div>
-    <script type="importmap">
-    {
-        "imports": {
-            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-        }
-    }
-    </script>
-    <script type="module">
-        import { initPoints, resize as resizePoints } from './points.js';
-        import { initBillboards, resize as resizeBillboards, setContentManager, dismissContent } from './billboards.js';
-        import { setupDevPanel, settings } from './gui_settings.js';
-        import { ContentManager } from './content-manager.js';
+  <header class="site-header">
+    <h1>August Graham</h1>
+    <nav class="header-links">
+      <a href="https://www.instagram.com/augustsgram/" class="header-link" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+        <img src="images/instagram.png" alt="" width="28" height="28">
+      </a>
+      <a href="https://www.linkedin.com/in/augustgraham/" class="header-link" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+        <img src="images/linkedin.png" alt="" width="28" height="28">
+      </a>
+    </nav>
+  </header>
 
-        async function init() {
-            // Add loading indicator for mobile
-            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-            if (isMobile) {
-                const loadingDiv = document.createElement('div');
-                loadingDiv.style.cssText = `
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    color: white;
-                    font-family: monospace;
-                    font-size: 16px;
-                    z-index: 1000;
-                    background: rgba(0,0,0,0.8);
-                    padding: 20px;
-                    border-radius: 10px;
-                `;
-                loadingDiv.textContent = 'Loading...';
-                document.body.appendChild(loadingDiv);
-                
-                // Remove loading indicator after a delay
-                setTimeout(() => {
-                    if (loadingDiv.parentNode) {
-                        loadingDiv.parentNode.removeChild(loadingDiv);
-                    }
-                }, 2000);
-            }
+  <main class="content">
+    <section class="intro">
+      <img
+        src="images/portrait.png"
+        alt="Portrait"
+        class="portrait"
+        width="400"
+        height="400"
+      />
+      <div class="about">
+        <h2>About</h2>
+        <p>
+          August Graham is a multimedia artist based in Brooklyn building interactive
+          and immersive experiences for musicians, brands, and beyond.
+        </p>
+      </div>
+    </section>
 
-            const gui = await setupDevPanel();
-            const pointsContainer = document.getElementById('points-container');
-            const buttonsContainer = document.getElementById('buttons-container');
-            
-            console.log('Initializing content manager...');
-            // Initialize content manager
-            const contentManager = new ContentManager(pointsContainer);
-            console.log('Content manager created:', contentManager);
-            
-            // Initialize points (but don't start immediately)
-            console.log('Initializing points...');
-            initPoints(pointsContainer);
-            
-            // Initialize billboards with content manager
-            console.log('Initializing billboards...');
-            initBillboards(buttonsContainer, (text) => {
-                // Removed triggerColorChange() call since color functionality was removed
-            });
-            
-            // Set content manager reference in billboards
-            console.log('Setting content manager in billboards...');
-            setContentManager(contentManager);
-
-            // Add onChange handlers to zoom controls only if GUI exists
-            if (gui) {
-                const zoomFolder = gui.__folders['Camera Zoom'];
-                if (zoomFolder) {
-                    zoomFolder.__controllers.forEach(ctrl => {
-                        ctrl.onChange(() => {
-                            resizePoints();
-                            resizeBillboards();
-                        });
-                    });
-                }
-            }
-
-            // Only add show-borders class if showBorders is true
-            if (settings.showBorders) {
-                document.body.classList.add('show-borders');
-            }
-            
-            console.log('Initialization complete');
-        }
-
-        init();
-    </script>
+    <section class="videos">
+      <h2>Work</h2>
+      <h3 class="video-title">Live Event Coverage Reel</h3>
+      <p class="video-subtitle">Videographer & Editor</p>
+      <div class="video-wrapper">
+        <!-- Replace VIDEO_ID with your Vimeo video ID from the share/embed URL -->
+        <iframe
+          src="https://player.vimeo.com/video/VIDEO_ID"
+          frameborder="0"
+          allow="autoplay; fullscreen; picture-in-picture"
+          allowfullscreen
+          title="Video 1"
+        ></iframe>
+      </div>
+      <h3 class="video-title">VFX Reel</h3>
+      <div class="video-wrapper">
+        <iframe
+          src="https://www.youtube.com/embed/ikDPdZyYoNc?si=ez9uJKkE20r9N3Dy"
+          title="YouTube video player"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen
+        ></iframe>
+      </div>
+      <h3 class="video-title">Tentra Pitch</h3>
+      <p class="video-subtitle">Director & Editor</p>
+      <div class="video-wrapper">
+        <iframe
+          src="https://www.youtube.com/embed/p2IaERxr3os?si=tRML6Nca21MUb3sQ"
+          title="YouTube video player"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </section>
+  </main>
 </body>
-</html> 
+</html>
